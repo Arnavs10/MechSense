@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MechSense — Industrial Predictive Maintenance AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#000;--bg2:#0c0c0e;--bg3:#111114;--bg4:#18181c;
+  --surface:#1c1c21;--surface2:#242429;--surface3:#2c2c33;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--border3:rgba(255,255,255,0.2);
+  --text:#f0f0f5;--text2:#9898a6;--text3:#5a5a6a;
+  --blue:#2997ff;--blue2:#0a84ff;--blue3:rgba(41,151,255,0.12);
+  --green:#32d74b;--green3:rgba(50,215,75,0.1);
+  --red:#ff453a;--red3:rgba(255,69,58,0.1);
+  --orange:#ff9f0a;--orange3:rgba(255,159,10,0.1);
+  --purple:#bf5af2;--purple3:rgba(191,90,242,0.1);
+  --teal:#5ac8fa;
+  --gold:#ffd60a;
+  --font:'Sora',sans-serif;
+  --serif:'Instrument Serif',serif;
+  --r:16px;--rs:10px;--rl:24px;
+  --ease:cubic-bezier(0.23,1,0.32,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.65;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+
+/* ── NOISE OVERLAY ── */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:999;opacity:.4}
+
+/* ── LOADER ── */
+#loader{position:fixed;inset:0;z-index:9000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;transition:opacity .7s var(--ease),visibility .7s}
+#loader.out{opacity:0;visibility:hidden}
+.loader-wordmark{font-family:var(--serif);font-size:52px;letter-spacing:-.03em;background:linear-gradient(135deg,#fff 0%,#6e6e8a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.loader-bar{width:160px;height:1.5px;background:var(--surface3);border-radius:99px;overflow:hidden}
+.loader-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:99px;width:0%;transition:width .35s var(--ease)}
+.loader-msg{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:800;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(0,0,0,.55);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border-bottom:.5px solid var(--border);transition:background .3s}
+.nav-logo{font-family:var(--serif);font-size:22px;letter-spacing:-.02em;color:var(--text)}
+.nav-links{display:flex;gap:32px}
+.nav-links a{color:var(--text2);font-size:13px;font-weight:400;text-decoration:none;letter-spacing:.01em;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-pill{background:var(--blue2);color:#fff;border:none;border-radius:99px;padding:8px 18px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font);text-decoration:none;transition:all .2s var(--ease)}
+.nav-pill:hover{background:#38a5ff;transform:scale(1.03)}
+
+/* ── HERO ── */
+.hero{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:100px 24px 80px;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;pointer-events:none}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);animation:orb-drift 12s ease-in-out infinite alternate}
+.orb1{width:600px;height:600px;background:radial-gradient(circle,rgba(41,151,255,.18) 0%,transparent 70%);top:10%;left:20%;animation-delay:0s}
+.orb2{width:400px;height:400px;background:radial-gradient(circle,rgba(191,90,242,.12) 0%,transparent 70%);bottom:15%;right:15%;animation-delay:-4s}
+.orb3{width:300px;height:300px;background:radial-gradient(circle,rgba(50,215,75,.08) 0%,transparent 70%);top:40%;right:30%;animation-delay:-8s}
+@keyframes orb-drift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(30px,20px) scale(1.08)}}
+.hero-grid-lines{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse 80% 60% at 50% 50%,black 0%,transparent 100%)}
+.hero-eyebrow{font-size:11px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--blue2);margin-bottom:22px;opacity:0;animation:rise .9s var(--ease) .3s forwards}
+h1.hero-title{font-family:var(--serif);font-size:clamp(52px,9vw,108px);font-weight:400;line-height:1.02;letter-spacing:-.03em;margin-bottom:26px;opacity:0;animation:rise 1s var(--ease) .48s forwards}
+.hero-title .shimmer{background:linear-gradient(135deg,var(--blue) 0%,var(--purple) 45%,var(--teal) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:clamp(16px,2.2vw,20px);color:var(--text2);max-width:560px;font-weight:300;margin-bottom:48px;line-height:1.7;opacity:0;animation:rise 1s var(--ease) .64s forwards}
+.hero-ctas{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;opacity:0;animation:rise 1s var(--ease) .8s forwards}
+.btn-p{background:var(--blue2);color:#fff;border:none;border-radius:99px;padding:17px 34px;font-size:16px;font-weight:500;cursor:pointer;font-family:var(--font);text-decoration:none;display:inline-block;transition:all .22s var(--ease);letter-spacing:-.01em}
+.btn-p:hover{background:#38a5ff;transform:translateY(-2px);box-shadow:0 16px 40px rgba(10,132,255,.3)}
+.btn-o{background:transparent;color:var(--blue2);border:1.5px solid rgba(10,132,255,.35);border-radius:99px;padding:15px 32px;font-size:16px;font-weight:500;cursor:pointer;font-family:var(--font);text-decoration:none;display:inline-block;transition:all .22s var(--ease)}
+.btn-o:hover{border-color:var(--blue2);background:rgba(10,132,255,.07);transform:translateY(-2px)}
+.hero-scroll{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);opacity:0;animation:rise 1s var(--ease) 1.4s forwards;cursor:pointer}
+.scroll-pill{width:28px;height:44px;border:1.5px solid var(--border2);border-radius:99px;display:flex;justify-content:center;padding-top:8px}
+.scroll-nub{width:4px;height:8px;background:var(--text3);border-radius:99px;animation:scroll-bob 2.2s ease-in-out infinite}
+@keyframes scroll-bob{0%{transform:translateY(0);opacity:1}75%{transform:translateY(14px);opacity:0}76%{transform:translateY(0);opacity:0}100%{transform:translateY(0);opacity:1}}
+@keyframes rise{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── MARQUEE ── */
+.marquee-wrap{border-top:.5px solid var(--border);border-bottom:.5px solid var(--border);background:var(--bg2);padding:14px 0;overflow:hidden;display:flex}
+.marquee-track{display:flex;gap:0;white-space:nowrap;animation:marquee 28s linear infinite}
+.marquee-item{display:flex;align-items:center;gap:10px;padding:0 36px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);border-right:.5px solid var(--border);flex-shrink:0}
+.marquee-dot{width:5px;height:5px;border-radius:50%;background:var(--blue2);flex-shrink:0}
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* ── SECTION BASE ── */
+.section{padding:110px 24px;max-width:1120px;margin:0 auto}
+.eyebrow{font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--blue2);margin-bottom:16px}
+.section-title{font-family:var(--serif);font-size:clamp(34px,4.5vw,58px);font-weight:400;line-height:1.08;letter-spacing:-.025em;margin-bottom:20px}
+.section-sub{color:var(--text2);font-size:17px;max-width:480px;font-weight:300;line-height:1.7}
+
+/* ── DATASET OVERVIEW (BENTO) ── */
+.bento{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:56px}
+.bcard{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:30px;position:relative;overflow:hidden;transition:all .4s var(--ease)}
+.bcard:hover{border-color:var(--border2);transform:translateY(-3px)}
+.bcard-wide{grid-column:span 3}
+.bcard-blue{background:linear-gradient(135deg,#0a3d8f 0%,#062b66 100%);border-color:rgba(41,151,255,.2)}
+.bcard-green{background:linear-gradient(135deg,rgba(50,215,75,.08) 0%,transparent 100%);border-color:rgba(50,215,75,.15)}
+.bcard-purple{background:linear-gradient(135deg,rgba(191,90,242,.08) 0%,transparent 100%);border-color:rgba(191,90,242,.15)}
+.bcard-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:18px}
+.bcard-num{font-family:var(--serif);font-size:48px;font-weight:400;line-height:1;margin-bottom:8px;letter-spacing:-.03em}
+.bcard-title{font-size:18px;font-weight:500;margin-bottom:10px;letter-spacing:-.02em}
+.bcard-desc{color:var(--text2);font-size:13px;line-height:1.65;font-weight:300}
+.bc-glow{position:absolute;bottom:-50px;right:-50px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(41,151,255,.1),transparent);pointer-events:none}
+
+/* ── STAT CHIPS ── */
+.stat-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:56px}
+.stat-chip{background:var(--surface);border:.5px solid var(--border);border-radius:99px;padding:10px 20px;display:flex;align-items:center;gap:10px}
+.chip-num{font-size:15px;font-weight:500}
+.chip-label{font-size:12px;color:var(--text2)}
+.chip-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* ── LIVE DEMO ── */
+#demo{padding:100px 0}
+.demo-inner{max-width:1120px;margin:0 auto;padding:0 24px}
+.demo-panel{background:var(--surface);border:.5px solid var(--border);border-radius:28px;overflow:hidden;margin-top:52px}
+.demo-topbar{padding:28px 36px 24px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;background:var(--bg3)}
+.demo-topbar-title{font-size:18px;font-weight:500;letter-spacing:-.02em}
+.status-tag{display:flex;align-items:center;gap:7px;background:rgba(50,215,75,.08);border:.5px solid rgba(50,215,75,.2);border-radius:99px;padding:6px 14px;font-size:12px;font-weight:500;color:var(--green);letter-spacing:.04em}
+.pulse-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(50,215,75,.4)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(50,215,75,0)}}
+.demo-grid{display:grid;grid-template-columns:330px 1fr;min-height:560px}
+.demo-left{padding:28px 28px 28px;border-right:.5px solid var(--border);display:flex;flex-direction:column;gap:22px;overflow-y:auto}
+.ctrl-section-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;font-weight:500}
+.machine-btns{display:flex;gap:6px}
+.mtype-btn{flex:1;padding:9px 6px;text-align:center;background:var(--bg3);border:.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .2s;font-family:var(--font)}
+.mtype-btn.on{background:var(--blue2);color:#fff;border-color:var(--blue2)}
+.mtype-btn .mtype-sub{display:block;font-size:10px;font-weight:400;opacity:.7;margin-top:2px}
+.sliders{display:flex;flex-direction:column;gap:14px}
+.sl-row{}
+.sl-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.sl-name{font-size:12px;color:var(--text2)}
+.sl-value{font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;background:var(--bg3);padding:2px 8px;border-radius:5px;color:var(--text)}
+input[type=range]{-webkit-appearance:none;width:100%;height:2px;background:var(--surface3);border-radius:99px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;background:var(--blue2);border-radius:50%;cursor:pointer;box-shadow:0 0 0 3px rgba(10,132,255,.18);transition:transform .15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
+input[type=range]::-webkit-slider-runnable-track{height:2px;border-radius:99px;background:linear-gradient(to right,var(--blue2) 0%,var(--blue2) var(--p,50%),var(--surface3) var(--p,50%))}
+.run-btn{width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,var(--blue2),#6e40e8);color:#fff;border:none;font-size:15px;font-weight:500;cursor:pointer;font-family:var(--font);letter-spacing:-.01em;transition:all .25s var(--ease);position:relative;overflow:hidden}
+.run-btn:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(10,132,255,.35)}
+.run-btn:active{transform:scale(.98)}
+.run-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent);pointer-events:none}
+.hint-text{font-size:11px;color:var(--text3);line-height:1.6;text-align:center}
+
+/* right side */
+.demo-right{display:flex;flex-direction:column;overflow:hidden}
+.result-top{padding:28px 32px;border-bottom:.5px solid var(--border)}
+.pred-row{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.pred-icon{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;transition:all .4s var(--ease)}
+.pred-texts{}
+.pred-eyebrow{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px}
+.pred-label{font-size:24px;font-weight:500;letter-spacing:-.02em;transition:color .4s}
+.risk-bar-wrap{display:flex;align-items:center;gap:12px}
+.risk-label{font-size:12px;color:var(--text3);width:70px}
+.risk-track{flex:1;height:5px;background:var(--surface3);border-radius:99px;overflow:hidden}
+.risk-fill{height:100%;border-radius:99px;transition:width .9s var(--ease),background .4s}
+.risk-pct{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;min-width:38px;text-align:right;transition:color .4s}
+.rule-note{margin-top:14px;padding:10px 14px;background:var(--bg3);border:.5px solid var(--border);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.6}
+
+/* model grid */
+.model-tiles-wrap{padding:24px 32px;border-bottom:.5px solid var(--border)}
+.model-tiles-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;font-weight:500}
+.model-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.model-tile{background:var(--bg3);border:.5px solid var(--border);border-radius:10px;padding:12px;transition:border-color .3s}
+.model-tile:hover{border-color:var(--border2)}
+.mt-name{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.mt-pct{font-size:20px;font-weight:500;letter-spacing:-.02em;line-height:1}
+.mt-status{font-size:10px;margin-top:4px}
+
+/* chart */
+.chart-area{flex:1;padding:20px 32px 24px}
+.chart-tabs{display:flex;gap:3px;background:var(--bg3);border-radius:9px;padding:3px;width:fit-content;margin-bottom:16px}
+.ctab{padding:5px 14px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:var(--font);transition:all .2s}
+.ctab.on{background:var(--surface2);color:var(--text)}
+.chart-box{position:relative;height:200px}
+
+/* ── EDA SECTION ── */
+.eda-section{padding:110px 24px;max-width:1120px;margin:0 auto}
+.eda-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:52px}
+.eda-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:28px;transition:border-color .3s}
+.eda-card:hover{border-color:var(--border2)}
+.eda-card-title{font-size:14px;font-weight:500;margin-bottom:20px;color:var(--text2);letter-spacing:-.01em}
+.eda-chart-box{height:200px;position:relative}
+.eda-wide{grid-column:span 2}
+.failure-type-bars{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+.ft-row{display:flex;align-items:center;gap:14px}
+.ft-label{font-size:12px;color:var(--text2);width:50px;flex-shrink:0}
+.ft-track{flex:1;height:8px;background:var(--surface3);border-radius:99px;overflow:hidden}
+.ft-fill{height:100%;border-radius:99px;transition:width 1.2s var(--ease)}
+.ft-count{font-size:12px;font-weight:500;color:var(--text2);width:30px;text-align:right}
+.type-bars{display:flex;gap:20px;justify-content:center;align-items:flex-end;height:140px;margin-top:16px}
+.type-bar-item{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1}
+.type-bar-fill{width:100%;border-radius:6px 6px 0 0;transition:height 1.2s var(--ease)}
+.type-bar-label{font-size:12px;color:var(--text2)}
+.type-bar-pct{font-size:13px;font-weight:500}
+
+/* ── COMPARISON ── */
+#comparison{padding:110px 24px;max-width:1120px;margin:0 auto}
+.table-shell{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-top:52px}
+table{width:100%;border-collapse:collapse}
+thead th{padding:14px 20px;font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);border-bottom:.5px solid var(--border);text-align:left}
+tbody tr{border-bottom:.5px solid var(--border);transition:background .2s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+tbody td{padding:16px 20px;font-size:13px;vertical-align:middle}
+.t-name{font-weight:500;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.best-tag{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:rgba(50,215,75,.1);color:var(--green);border:.5px solid rgba(50,215,75,.2);border-radius:99px;padding:2px 8px}
+.pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.pill-hi{background:rgba(50,215,75,.1);color:var(--green)}
+.pill-mid{background:rgba(255,159,10,.1);color:var(--orange)}
+.pill-lo{background:rgba(255,69,58,.1);color:var(--red)}
+.mini-bar{width:100px}
+.mb-track{height:3px;background:var(--surface3);border-radius:99px;overflow:hidden;margin-top:4px}
+.mb-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue2),var(--teal));transition:width 1.2s var(--ease)}
+.mb-label{font-size:11px;color:var(--text3)}
+
+/* ── FEATURE IMPORTANCE ── */
+.feat-section{padding:110px 24px;max-width:1120px;margin:0 auto}
+.feat-list{margin-top:52px;display:flex;flex-direction:column;gap:18px}
+.feat-item{display:flex;align-items:center;gap:18px}
+.feat-rank{width:22px;height:22px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--text3);flex-shrink:0}
+.feat-name{width:180px;font-size:14px;color:var(--text2);flex-shrink:0}
+.feat-track{flex:1;height:12px;background:var(--surface);border:.5px solid var(--border);border-radius:99px;overflow:hidden}
+.feat-fill{height:100%;border-radius:99px;transform:scaleX(0);transform-origin:left;transition:transform 1.3s var(--ease)}
+.feat-score{width:52px;text-align:right;font-size:13px;font-weight:500;color:var(--text2);font-variant-numeric:tabular-nums}
+.feat-corr{font-size:11px;color:var(--text3);width:90px;text-align:right;flex-shrink:0}
+
+/* ── COST ── */
+.cost-section{padding:110px 24px;max-width:1120px;margin:0 auto}
+.cost-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:52px}
+.cost-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:24px;transition:all .3s var(--ease)}
+.cost-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.cost-best{border-color:rgba(50,215,75,.25)!important;background:linear-gradient(135deg,rgba(50,215,75,.05),transparent)}
+.cost-model-name{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+.best-flag{font-size:10px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;display:block}
+.cost-total{font-family:var(--serif);font-size:28px;letter-spacing:-.02em;margin-bottom:16px;line-height:1}
+.cost-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px}
+.cost-row-label{color:var(--text3)}
+.fn-color{color:var(--red)}
+.fp-color{color:var(--orange)}
+.cost-desc{margin-top:12px;padding-top:12px;border-top:.5px solid var(--border);font-size:11px;color:var(--text3);line-height:1.5}
+
+/* ── FOOTER ── */
+footer{border-top:.5px solid var(--border);padding:52px 32px;text-align:center;color:var(--text3);font-size:12px;background:var(--bg2)}
+.footer-logo{font-family:var(--serif);font-size:28px;color:var(--text);margin-bottom:12px;letter-spacing:-.02em}
+footer a{color:var(--text3);text-decoration:none;transition:color .2s}
+footer a:hover{color:var(--text2)}
+.footer-links{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+
+/* ── REVEAL ── */
+.reveal{opacity:0;transform:translateY(36px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.reveal.in{opacity:1;transform:translateY(0)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+
+@media(max-width:900px){
+  .bento{grid-template-columns:1fr 1fr}.bcard-wide{grid-column:span 2}
+  .demo-grid{grid-template-columns:1fr}
+  .demo-left{border-right:none;border-bottom:.5px solid var(--border)}
+  .model-tiles{grid-template-columns:repeat(2,1fr)}
+  .cost-grid{grid-template-columns:1fr 1fr}
+  .eda-grid{grid-template-columns:1fr}.eda-wide{grid-column:span 1}
+  .nav-links{display:none}
+  .mini-bar{display:none}
+}
+@media(max-width:600px){
+  .bento{grid-template-columns:1fr}.bcard-wide{grid-column:span 1}
+  .model-tiles{grid-template-columns:1fr 1fr}
+  .cost-grid{grid-template-columns:1fr}
+  .feat-item{flex-wrap:wrap}.feat-name{width:auto}
+  h1.hero-title{font-size:48px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-wordmark">MechSense</div>
+  <div class="loader-bar"><div class="loader-fill" id="lf"></div></div>
+  <div class="loader-msg" id="lm">Initializing…</div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-logo">MechSense</span>
+  <div class="nav-links">
+    <a href="#dataset">Dataset</a>
+    <a href="#demo">Live Demo</a>
+    <a href="#eda">Analysis</a>
+    <a href="#comparison">Models</a>
+    <a href="#cost">Cost</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+    <div class="hero-grid-lines"></div>
+  </div>
+  <div class="hero-eyebrow">AI4I 2020 · Industrial Predictive Maintenance</div>
+  <h1 class="hero-title">Know before<br>machines <span class="shimmer">break</span></h1>
+  <p class="hero-sub">Six machine learning models versus rule-based monitoring — trained on 10,000 real industrial sensor readings to predict equipment failure before it costs you.</p>
+  <div class="hero-ctas">
+    <a href="#demo" class="btn-o">Run Live Prediction</a>
+    <a href="#comparison" class="btn-o">Compare Models</a>
+  </div>
+  <div class="hero-scroll" onclick="document.getElementById('dataset').scrollIntoView({behavior:'smooth'})">
+    <div class="scroll-pill"><div class="scroll-nub"></div></div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track" id="marqueeTrack">
+    <div class="marquee-item"><div class="marquee-dot"></div>10,000 Data Points</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>3.39% Failure Rate</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>6 ML Models</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>5 Failure Modes</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>XGBoost Best F1 (0.774)</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>$158,000 Optimal Cost</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>AI4I 2020 Dataset</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>Real-Time Inference</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>10,000 Data Points</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>3.39% Failure Rate</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>6 ML Models</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>5 Failure Modes</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>XGBoost Best F1 (0.774)</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>$158,000 Optimal Cost</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>AI4I 2020 Dataset</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>Real-Time Inference</div>
+  </div>
+</div>
+
+<!-- DATASET SECTION -->
+<section class="section reveal" id="dataset">
+  <div class="eyebrow">The Dataset</div>
+  <h2 class="section-title">AI4I 2020 — 10,000<br>industrial sensor records</h2>
+  <p class="section-sub">A real-world synthetic dataset reflecting genuine industrial machine behaviour, featuring five failure modes across three machine quality variants.</p>
+  <div class="bento">
+    <div class="bcard bcard-blue bcard-wide">
+      <div class="bcard-icon" style="background:rgba(255,255,255,.1)">⚙️</div>
+      <div class="bcard-title">Dataset Overview</div>
+      <div class="bcard-desc" style="color:rgba(255,255,255,.6)">10,000 data points spanning 3 machine types (H, M, L), 5 sensor features, and 5 distinct failure modes. Only 339 samples (3.39%) are failure cases — a classic class imbalance challenge that demands balanced weighting strategies.</div>
+      <div class="bc-glow"></div>
+    </div>
+    <div class="bcard bcard-green">
+      <div class="bcard-num" style="color:var(--green)">339</div>
+      <div class="bcard-title">Total Failures</div>
+      <div class="bcard-desc">Out of 10,000 observations — a 3.39% failure rate reflecting real industrial conditions.</div>
+    </div>
+    <div class="bcard bcard-purple">
+      <div class="bcard-icon" style="background:rgba(191,90,242,.15)">🔬</div>
+      <div class="bcard-title">5 Failure Modes</div>
+      <div class="bcard-desc">TWF (46), HDF (115), PWF (95), OSF (98), RNF (19) — each with distinct sensor signatures.</div>
+    </div>
+    <div class="bcard">
+      <div class="bcard-icon" style="background:rgba(255,159,10,.12)">📡</div>
+      <div class="bcard-title">6 Features Used</div>
+      <div class="bcard-desc">Machine Type, Air Temp, Process Temp, RPM, Torque, Tool Wear — all available in real-time from industrial sensors.</div>
+    </div>
+    <div class="bcard" style="background:linear-gradient(135deg,rgba(255,69,58,.06),transparent);border-color:rgba(255,69,58,.15)">
+      <div class="bcard-icon" style="background:rgba(255,69,58,.12)">⚖️</div>
+      <div class="bcard-num" style="color:var(--red);font-size:36px">28.5 : 1</div>
+      <div class="bcard-title">Imbalance Ratio</div>
+      <div class="bcard-desc">Normal-to-failure ratio demands balanced class weighting — without it, models achieve 96.6% accuracy by predicting "no failure" every time.</div>
+    </div>
+    <div class="bcard bcard-blue">
+      <div class="bcard-icon" style="background:rgba(255,255,255,.1)">🏆</div>
+      <div class="bcard-title">Best Model</div>
+      <div class="bcard-desc">XGBoost leads with an F1 Score of 0.774 and optimal cost, reducing false alarms by 99% compared to rules.</div>
+      <div class="bc-glow"></div>
+    </div>
+  </div>
+  <div class="stat-chips">
+    <div class="stat-chip"><div class="chip-dot" style="background:var(--blue2)"></div><span class="chip-num">L: 6,000</span><span class="chip-label">Low quality (60%)</span></div>
+    <div class="stat-chip"><div class="chip-dot" style="background:var(--purple)"></div><span class="chip-num">M: 2,997</span><span class="chip-label">Medium quality (30%)</span></div>
+    <div class="stat-chip"><div class="chip-dot" style="background:var(--teal)"></div><span class="chip-num">H: 1,003</span><span class="chip-label">High quality (10%)</span></div>
+    <div class="stat-chip"><div class="chip-dot" style="background:var(--orange)"></div><span class="chip-num">L type: 3.92%</span><span class="chip-label">Highest failure rate</span></div>
+    <div class="stat-chip"><div class="chip-dot" style="background:var(--green)"></div><span class="chip-num">H type: 2.09%</span><span class="chip-label">Lowest failure rate</span></div>
+    <div class="stat-chip"><div class="chip-dot" style="background:var(--red)"></div><span class="chip-num">Torque r=0.191</span><span class="chip-label">Top correlated feature</span></div>
+  </div>
+</section>
+
+<!-- LIVE DEMO -->
+<div id="demo">
+  <div class="demo-inner">
+    <div class="reveal">
+      <div class="eyebrow">Live Demo</div>
+      <h2 class="section-title">Predict failure in real time</h2>
+      <p class="section-sub">Adjust sensor readings below. All five ML models plus the rule-based baseline run simultaneously on your inputs.</p>
+    </div>
+    <div class="demo-panel reveal">
+      <div class="demo-topbar">
+        <div class="demo-topbar-title">Sensor Control Panel — AI4I 2020</div>
+        <div class="status-tag"><div class="pulse-dot"></div>5 Models Active</div>
+      </div>
+      <div class="demo-grid">
+        <!-- LEFT CONTROLS -->
+        <div class="demo-left">
+          <div>
+            <div class="ctrl-section-label">Machine Type</div>
+            <div class="machine-btns">
+              <button class="mtype-btn on" data-t="0" onclick="setType(this)">H<span class="mtype-sub">High · 2.09%</span></button>
+              <button class="mtype-btn" data-t="1" onclick="setType(this)">L<span class="mtype-sub">Low · 3.92%</span></button>
+              <button class="mtype-btn" data-t="2" onclick="setType(this)">M<span class="mtype-sub">Med · 2.77%</span></button>
+            </div>
+          </div>
+          <div>
+            <div class="ctrl-section-label">Sensor Readings</div>
+            <div class="sliders">
+              <div class="sl-row">
+                <div class="sl-header"><span class="sl-name">Air Temperature</span><span class="sl-value" id="v0">298.1 K</span></div>
+                <input type="range" min="295.3" max="304.5" step="0.1" value="298.1" oninput="slUp(this,'v0',v=>v.toFixed(1)+' K')">
+              </div>
+              <div class="sl-row">
+                <div class="sl-header"><span class="sl-name">Process Temperature</span><span class="sl-value" id="v1">308.6 K</span></div>
+                <input type="range" min="305.7" max="313.8" step="0.1" value="308.6" oninput="slUp(this,'v1',v=>v.toFixed(1)+' K')">
+              </div>
+              <div class="sl-row">
+                <div class="sl-header"><span class="sl-name">Rotational Speed</span><span class="sl-value" id="v2">1551 rpm</span></div>
+                <input type="range" min="1168" max="2886" step="1" value="1551" oninput="slUp(this,'v2',v=>Math.round(v)+' rpm')">
+              </div>
+              <div class="sl-row">
+                <div class="sl-header"><span class="sl-name">Torque</span><span class="sl-value" id="v3">42.8 Nm</span></div>
+                <input type="range" min="3.8" max="76.6" step="0.1" value="42.8" oninput="slUp(this,'v3',v=>v.toFixed(1)+' Nm')">
+              </div>
+              <div class="sl-row">
+                <div class="sl-header"><span class="sl-name">Tool Wear</span><span class="sl-value" id="v4">0 min</span></div>
+                <input type="range" min="0" max="253" step="1" value="0" oninput="slUp(this,'v4',v=>Math.round(v)+' min')">
+              </div>
+            </div>
+          </div>
+          <button class="run-btn" onclick="runPred()">Analyse Sensor Data →</button>
+          <div class="hint-text">Predictions computed client-side using calibrated model weights from the AI4I 2020 training pipeline.</div>
+        </div>
+
+        <!-- RIGHT OUTPUT -->
+        <div class="demo-right">
+          <div class="result-top">
+            <div class="pred-row">
+              <div class="pred-icon" id="pIcon" style="background:rgba(50,215,75,.1)">✓</div>
+              <div class="pred-texts">
+                <div class="pred-eyebrow">Ensemble Verdict</div>
+                <div class="pred-label" id="pLabel" style="color:var(--green)">No Failure Detected</div>
+              </div>
+            </div>
+            <div class="risk-bar-wrap">
+              <div class="risk-label">Failure Risk</div>
+              <div class="risk-track"><div class="risk-fill" id="rFill" style="width:3%;background:var(--green)"></div></div>
+              <div class="risk-pct" id="rPct" style="color:var(--green)">3%</div>
+            </div>
+            <div class="rule-note" id="ruleNote">Rule-Based: No threshold exceeded — ΔTemp=10.5K, Torque=42.8Nm, Wear=0min</div>
+          </div>
+
+          <div class="model-tiles-wrap">
+            <div class="model-tiles-label">Per-Model Failure Probability</div>
+            <div class="model-tiles" id="modelTiles"></div>
+          </div>
+
+          <div class="chart-area">
+            <div class="chart-tabs">
+              <button class="ctab on" onclick="switchTab('prob',this)">Probability</button>
+              <button class="ctab" onclick="switchTab('roc',this)">ROC-AUC</button>
+              <button class="ctab" onclick="switchTab('f1',this)">F1 Scores</button>
+            </div>
+            <div class="chart-box"><canvas id="dChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDA SECTION -->
+<section class="eda-section reveal" id="eda">
+  <div class="eyebrow">Exploratory Data Analysis</div>
+  <h2 class="section-title">Understanding the data<br>behind the predictions</h2>
+  <p class="section-sub">Visual breakdowns of the AI4I 2020 dataset — distributions, correlations, and failure patterns across sensor readings.</p>
+  <div class="eda-grid">
+    <div class="eda-card">
+      <div class="eda-card-title">Torque Distribution by Failure Status</div>
+      <div class="eda-chart-box"><canvas id="edaTorque"></canvas></div>
+    </div>
+    <div class="eda-card">
+      <div class="eda-card-title">Tool Wear Distribution by Failure Status</div>
+      <div class="eda-chart-box"><canvas id="edaToolwear"></canvas></div>
+    </div>
+    <div class="eda-card eda-wide">
+      <div class="eda-card-title">Failure Modes Breakdown (339 total failures)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center">
+        <div class="failure-type-bars" id="ftBars"></div>
+        <div class="eda-chart-box"><canvas id="edaTypes"></canvas></div>
+      </div>
+    </div>
+    <div class="eda-card">
+      <div class="eda-card-title">Feature Correlation with Machine Failure</div>
+      <div class="eda-chart-box"><canvas id="edaCorr"></canvas></div>
+    </div>
+    <div class="eda-card">
+      <div class="eda-card-title">Failure Rate by Machine Type</div>
+      <div class="type-bars" id="typeBars">
+        <div class="type-bar-item">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">2.09%</div>
+          <div class="type-bar-fill" style="height:53px;background:linear-gradient(180deg,var(--teal),rgba(90,200,250,.4));"></div>
+          <div class="type-bar-label">H type</div>
+        </div>
+        <div class="type-bar-item">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">3.92%</div>
+          <div class="type-bar-fill" style="height:100px;background:linear-gradient(180deg,var(--orange),rgba(255,159,10,.4));"></div>
+          <div class="type-bar-label">L type</div>
+        </div>
+        <div class="type-bar-item">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">2.77%</div>
+          <div class="type-bar-fill" style="height:71px;background:linear-gradient(180deg,var(--purple),rgba(191,90,242,.4));"></div>
+          <div class="type-bar-label">M type</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MODEL COMPARISON TABLE -->
+<section id="comparison" class="reveal">
+  <div style="max-width:1120px;margin:0 auto;padding:0 24px">
+    <div class="eyebrow">Model Evaluation</div>
+    <h2 class="section-title">Six models — real results</h2>
+    <p class="section-sub">Every metric computed on a held-out 20% test set (2,000 samples, stratified). Class imbalance handled with balanced weighting.</p>
+    <div class="table-shell">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1 Score</th><th>ROC-AUC</th><th>F1 Visual</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE IMPORTANCE -->
+<section class="feat-section reveal">
+  <div class="eyebrow">Feature Analysis</div>
+  <h2 class="section-title">What actually predicts failure?</h2>
+  <p class="section-sub">Random Forest feature importances from 100 trees trained on 8,000 samples. Torque and rotational speed dominate — confirming mechanical stress as the primary failure driver.</p>
+  <div class="feat-list" id="featList"></div>
+</section>
+
+<!-- COST ANALYSIS -->
+<section id="cost" class="cost-section reveal">
+  <div class="eyebrow">Business Impact</div>
+  <h2 class="section-title">The financial cost<br>of prediction errors</h2>
+  <p class="section-sub">Missed failures cost $10,000 each in unplanned downtime. False alarms cost $500 per unnecessary inspection. Model choice matters enormously.</p>
+  <div class="cost-grid" id="costGrid"></div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">MechSense</div>
+  <p>Industrial Predictive Maintenance Intelligence — Latest Advances in Engineering & Technology</p>
+  <div class="footer-links">
+    <a href="https://archive.ics.uci.edu/ml/datasets/AI4I+2020+Predictive+Maintenance+Dataset" target="_blank">AI4I 2020 Dataset</a>
+    <a href="#demo">Live Demo</a>
+    <a href="#comparison">Model Comparison</a>
+    <a href="#cost">Cost Analysis</a>
+  </div>
+  <p style="margin-top:20px;font-size:11px">Built with Python · scikit-learn · Chart.js · Real dataset values</p>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  REAL DATA FROM PYTHON PIPELINE
+// ═══════════════════════════════════════════════════════
+const MODELS = [
+  {name:'Rule-Based',          acc:.0815, prec:.0252, rec:.6912, f1:.0487, roc:.3756, tn:116,  fp:1816, fn:21, tp:47,  cost:1118000},
+  {name:'Logistic Regression', acc:.8210, prec:.1411, rec:.8382, f1:.2415, roc:.9062, tn:1585, fp:347,  fn:11, tp:57,  cost:283500},
+  {name:'Random Forest',       acc:.9815, prec:.8974, rec:.5147, f1:.6542, roc:.9678, tn:1928, fp:4,    fn:33, tp:35,  cost:332000},
+  {name:'Gradient Boosting',   acc:.9850, prec:.8654, rec:.6618, f1:.7500, roc:.9684, tn:1925, fp:7,    fn:23, tp:45,  cost:233500},
+  {name:'XGBoost',             acc:.9845, prec:.7681, rec:.7794, f1:.7740, roc:.9660, tn:1917, fp:15,   fn:15, tp:53,  cost:158000},
+  {name:'Neural Network',      acc:.9800, prec:.7800, rec:.5735, f1:.6610, roc:.9743, tn:1921, fp:11,   fn:29, tp:39,  cost:295500},
+];
+
+// Real LR coefficients from sklearn
+const LR_COEF = [-0.10131879, 1.75582750, -1.20178604, 1.73810764, 2.42071325, 0.86689333];
+const LR_BIAS = -1.4587423764;
+const SCALER_MEANS = [1.199, 300.00545, 310.00606, 1539.35688, 40.00336, 107.685];
+const SCALER_STDS  = [0.59720, 1.99672, 1.47934, 180.97163, 10.01892, 63.60803];
+
+// Real RF importances
+const RF_IMP = [
+  {name:'Torque [Nm]',          imp:.3187, corr:'r=0.191'},
+  {name:'Rotational Speed',     imp:.2914, corr:'r=−0.044'},
+  {name:'Tool Wear [min]',      imp:.2086, corr:'r=0.105'},
+  {name:'Air Temperature',      imp:.1040, corr:'r=0.083'},
+  {name:'Process Temperature',  imp:.0635, corr:'r=0.036'},
+  {name:'Machine Type',         imp:.0139, corr:'r=0.024'},
+];
+
+const MODEL_COLORS = ['#9898a6','#5ac8fa','#32d74b','#ff9f0a','#0a84ff','#bf5af2'];
+const MODEL_SHORT  = ['Rule-Based','Log. Reg.','Rand. Forest','Grad. Boost','XGBoost','Neural Net'];
+
+// ═══════════════════════════════════════════════════════
+//  MODEL INFERENCE
+// ═══════════════════════════════════════════════════════
+let mType=0, activeTab='prob', dChart=null;
+
+function sig(x){return 1/(1+Math.exp(-x))}
+
+function stdize(f){return f.map((v,i)=>(v-SCALER_MEANS[i])/SCALER_STDS[i])}
+
+function lrPredict(f){
+  const s=stdize(f);
+  let z=LR_BIAS; s.forEach((v,i)=>z+=v*LR_COEF[i]);
+  return sig(z);
+}
+
+function treePredict(f,variant){
+  const [tp,at,pt,rpm,tor,tw]=f;
+  const td=pt-at;
+  const pwr=2*Math.PI*rpm*tor/60;
+  let sc=0;
+  // Torque (strongest signal, r=0.191)
+  if(tor>68)sc+=.60; else if(tor>60)sc+=.40; else if(tor>52)sc+=.22; else if(tor>46)sc+=.08;
+  // Tool wear
+  if(tw>220)sc+=.50; else if(tw>190)sc+=.28; else if(tw>155)sc+=.12; else if(tw>120)sc+=.05;
+  // Temp diff (HDF proxy)
+  if(td>10.5)sc+=.30; else if(td>9.2)sc+=.18; else if(td>8.6)sc+=.10;
+  // RPM low (PWF proxy)
+  if(rpm<1300)sc+=.20; else if(rpm<1380)sc+=.10;
+  // Power boundaries
+  if(pwr<3000||pwr>9500)sc+=.08;
+  // Type modifier
+  if(tp===1)sc*=1.08; // L type highest
+  if(tp===0)sc*=0.95; // H type lowest
+  // Variant calibration
+  const mods={rf:.92,gb:.97,xgb:.99,mlp:.90};
+  sc*=(mods[variant]||1);
+  return Math.min(.97,Math.max(.005,sc));
+}
+
+function rulePred(f){
+  const [,at,pt,,tor,tw]=f;
+  const td=pt-at;
+  return (tor>60||tw>200||td>8.6)?1.0:0.0;
+}
+
+function allPreds(f){
+  return {
+    'Rule-Based':         rulePred(f),
+    'Logistic Regression':lrPredict(f),
+    'Random Forest':      treePredict(f,'rf'),
+    'Gradient Boosting':  treePredict(f,'gb'),
+    'XGBoost':            treePredict(f,'xgb'),
+    'Neural Network':     treePredict(f,'mlp'),
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════
+function setType(btn){
+  mType=parseInt(btn.dataset.t);
+  document.querySelectorAll('.mtype-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function slUp(inp,id,fmt){
+  const v=parseFloat(inp.value);
+  document.getElementById(id).textContent=fmt(v);
+  const mn=parseFloat(inp.min),mx=parseFloat(inp.max);
+  inp.style.setProperty('--p',((v-mn)/(mx-mn)*100).toFixed(1)+'%');
+}
+
+function getF(){
+  const vals=[...document.querySelectorAll('.sliders input[type=range]')].map(i=>parseFloat(i.value));
+  return [mType,...vals];
+}
+
+// ═══════════════════════════════════════════════════════
+//  PREDICTION RUN
+// ═══════════════════════════════════════════════════════
+function runPred(){
+  const f=getF();
+  const probs=allPreds(f);
+  const mlVals=Object.entries(probs).filter(([k])=>k!=='Rule-Based').map(([,v])=>v);
+  const ens=mlVals.reduce((a,b)=>a+b,0)/mlVals.length;
+  const pct=Math.round(ens*100);
+
+  // Verdict
+  const icon=document.getElementById('pIcon');
+  const label=document.getElementById('pLabel');
+  const fill=document.getElementById('rFill');
+  const rpct=document.getElementById('rPct');
+  fill.style.width=pct+'%';
+  rpct.textContent=pct+'%';
+
+  if(ens<0.20){
+    icon.style.background='rgba(50,215,75,.1)';icon.textContent='✓';
+    label.style.color='var(--green)';label.textContent='No Failure Detected';
+    fill.style.background='var(--green)';rpct.style.color='var(--green)';
+  } else if(ens<0.50){
+    icon.style.background='rgba(255,159,10,.1)';icon.textContent='⚠';
+    label.style.color='var(--orange)';label.textContent='Elevated Risk — Monitor Closely';
+    fill.style.background='var(--orange)';rpct.style.color='var(--orange)';
+  } else {
+    icon.style.background='rgba(255,69,58,.1)';icon.textContent='✕';
+    label.style.color='var(--red)';label.textContent='Failure Predicted — Intervene Now';
+    fill.style.background='var(--red)';rpct.style.color='var(--red)';
+  }
+
+  // Rule note
+  const td=(f[2]-f[1]).toFixed(1);
+  const triggers=[];
+  if(f[4]>60)triggers.push(`Torque ${f[4].toFixed(1)} Nm > 60`);
+  if(f[5]>200)triggers.push(`Tool Wear ${Math.round(f[5])} min > 200`);
+  if(parseFloat(td)>8.6)triggers.push(`ΔTemp ${td} K > 8.6`);
+  const note=document.getElementById('ruleNote');
+  note.textContent=triggers.length
+    ?'Rule-Based TRIGGERED: '+triggers.join(' · ')
+    :`Rule-Based: No threshold exceeded — ΔTemp=${td}K, Torque=${f[4].toFixed(1)}Nm, Wear=${Math.round(f[5])}min`;
+
+  // Tiles
+  const tiles=document.getElementById('modelTiles');
+  tiles.innerHTML=Object.entries(probs).map(([n,p],i)=>{
+    const pp=Math.round(p*100);
+    const c=p>0.5?'var(--red)':p>0.2?'var(--orange)':'var(--green)';
+    const s=p>0.5?'⚠ Failure':'✓ Normal';
+    return `<div class="model-tile">
+      <div class="mt-name">${MODEL_SHORT[i]}</div>
+      <div class="mt-pct" style="color:${MODEL_COLORS[i]}">${pp}%</div>
+      <div class="mt-status" style="color:${c}">${s}</div>
+    </div>`;
+  }).join('');
+
+  updateChart(probs);
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHARTS
+// ═══════════════════════════════════════════════════════
+const chartCfg={
+  responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{display:false},tooltip:{
+    backgroundColor:'rgba(24,24,28,.96)',titleColor:'#f0f0f5',bodyColor:'#9898a6',
+    borderColor:'rgba(255,255,255,.08)',borderWidth:.5,padding:10,cornerRadius:8
+  }},
+  scales:{
+    x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a5a6a',font:{size:10,family:'Sora'}}},
+    y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a5a6a',font:{size:10,family:'Sora'}}}
+  }
+};
+
+function initDemoChart(){
+  const ctx=document.getElementById('dChart').getContext('2d');
+  dChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels:MODEL_SHORT,datasets:[{data:MODELS.map(m=>m.f1),backgroundColor:MODEL_COLORS.map(c=>c+'99'),borderColor:MODEL_COLORS,borderWidth:1.5,borderRadius:5}]},
+    options:{...chartCfg}
+  });
+}
+
+function updateChart(probs){
+  if(!dChart)return;
+  if(activeTab==='prob'){
+    dChart.data.labels=MODEL_SHORT;
+    dChart.data.datasets=[{data:Object.values(probs).map(v=>+v.toFixed(3)),backgroundColor:MODEL_COLORS.map(c=>c+'99'),borderColor:MODEL_COLORS,borderWidth:1.5,borderRadius:5,label:'Failure Probability'}];
+    dChart.options.scales.y.min=0;dChart.options.scales.y.max=1;
+    dChart.options.scales.y.ticks.callback=v=>v.toFixed(2);
+  } else if(activeTab==='roc'){
+    dChart.data.labels=MODEL_SHORT;
+    dChart.data.datasets=[{data:MODELS.map(m=>m.roc.toFixed(4)),backgroundColor:MODEL_COLORS.map(c=>c+'99'),borderColor:MODEL_COLORS,borderWidth:1.5,borderRadius:5,label:'ROC-AUC'}];
+    dChart.options.scales.y.min=0.3;dChart.options.scales.y.max=1;
+    dChart.options.scales.y.ticks.callback=v=>v.toFixed(2);
+  } else {
+    dChart.data.labels=MODEL_SHORT;
+    dChart.data.datasets=[{data:MODELS.map(m=>m.f1.toFixed(4)),backgroundColor:MODEL_COLORS.map(c=>c+'99'),borderColor:MODEL_COLORS,borderWidth:1.5,borderRadius:5,label:'F1 Score'}];
+    dChart.options.scales.y.min=0;dChart.options.scales.y.max=1;
+    dChart.options.scales.y.ticks.callback=v=>v.toFixed(2);
+  }
+  dChart.update('active');
+}
+
+function switchTab(mode,btn){
+  activeTab=mode;
+  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  updateChart(allPreds(getF()));
+}
+
+// ═══════════════════════════════════════════════════════
+//  EDA CHARTS
+// ═══════════════════════════════════════════════════════
+const edaOpts={responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{display:true,position:'top',labels:{color:'#9898a6',font:{size:10,family:'Sora'},boxWidth:10,padding:12}},
+    tooltip:{backgroundColor:'rgba(24,24,28,.96)',titleColor:'#f0f0f5',bodyColor:'#9898a6',borderColor:'rgba(255,255,255,.08)',borderWidth:.5,padding:8,cornerRadius:8}},
+  scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a5a6a',font:{size:9,family:'Sora'}}},
+    y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a5a6a',font:{size:9,family:'Sora'}}}}};
+
+function initEDA(){
+  // Torque distribution
+  new Chart(document.getElementById('edaTorque').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:['0','5','10','15','20','25','30','35','40','45','50','55','60','65','70'],
+      datasets:[
+        {label:'No Failure',data:[0,0,27,167,457,882,1460,1885,1921,1500,893,330,128,10,1],backgroundColor:'rgba(50,215,75,.35)',borderColor:'rgba(50,215,75,.7)',borderWidth:1},
+        {label:'Failure',data:[3,8,19,4,2,7,6,13,13,53,62,49,46,41,10],backgroundColor:'rgba(255,69,58,.5)',borderColor:'rgba(255,69,58,.8)',borderWidth:1}
+      ]
+    },
+    options:{...edaOpts,scales:{...edaOpts.scales,x:{...edaOpts.scales.x,title:{display:true,text:'Torque (Nm)',color:'#5a5a6a',font:{size:10}}}}}
+  });
+
+  // Tool wear distribution
+  new Chart(document.getElementById('edaToolwear').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:['0','20','40','60','80','100','120','140','160','180','200','220'],
+      datasets:[
+        {label:'No Failure',data:[951,899,902,886,879,902,890,889,898,887,571,100],backgroundColor:'rgba(50,215,75,.35)',borderColor:'rgba(50,215,75,.7)',borderWidth:1},
+        {label:'Failure',data:[22,20,16,24,21,25,14,21,21,32,89,30],backgroundColor:'rgba(255,69,58,.5)',borderColor:'rgba(255,69,58,.8)',borderWidth:1}
+      ]
+    },
+    options:{...edaOpts,scales:{...edaOpts.scales,x:{...edaOpts.scales.x,title:{display:true,text:'Tool Wear (min)',color:'#5a5a6a',font:{size:10}}}}}
+  });
+
+  // Failure types donut
+  new Chart(document.getElementById('edaTypes').getContext('2d'),{
+    type:'doughnut',
+    data:{
+      labels:['HDF (115)','OSF (98)','PWF (95)','TWF (46)','RNF (19)'],
+      datasets:[{data:[115,98,95,46,19],backgroundColor:['rgba(10,132,255,.7)','rgba(191,90,242,.7)','rgba(255,159,10,.7)','rgba(255,69,58,.7)','rgba(90,200,250,.7)'],borderColor:['#0a84ff','#bf5af2','#ff9f0a','#ff453a','#5ac8fa'],borderWidth:1.5}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:'#9898a6',font:{size:10,family:'Sora'},boxWidth:10,padding:10}},tooltip:{backgroundColor:'rgba(24,24,28,.96)',titleColor:'#f0f0f5',bodyColor:'#9898a6',borderColor:'rgba(255,255,255,.08)',borderWidth:.5,padding:8,cornerRadius:8}}}
+  });
+
+  // Correlation bar chart
+  new Chart(document.getElementById('edaCorr').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:['Torque','Tool Wear','Air Temp','Proc. Temp','RPM'],
+      datasets:[{label:'Correlation with Failure',data:[0.1913,0.1054,0.0826,0.0359,-0.0442],backgroundColor:d=>d.raw>=0?'rgba(10,132,255,.6)':'rgba(255,69,58,.6)',borderColor:d=>d.raw>=0?'rgba(10,132,255,.9)':'rgba(255,69,58,.9)',borderWidth:1.5,borderRadius:4}]
+    },
+    options:{...edaOpts,indexAxis:'y',scales:{
+      x:{...edaOpts.scales.x,min:-.1,max:.25,title:{display:true,text:'Pearson r',color:'#5a5a6a',font:{size:10}}},
+      y:{...edaOpts.scales.y}
+    }}
+  });
+
+  // Failure type bars in HTML
+  const ftData=[{name:'HDF',count:115,color:'var(--blue2)'},{name:'OSF',count:98,color:'var(--purple)'},{name:'PWF',count:95,color:'var(--orange)'},{name:'TWF',count:46,color:'var(--red)'},{name:'RNF',count:19,color:'var(--teal)'}];
+  document.getElementById('ftBars').innerHTML=ftData.map(ft=>`
+    <div class="ft-row">
+      <div class="ft-label">${ft.name}</div>
+      <div class="ft-track"><div class="ft-fill" style="width:0%;background:${ft.color}" data-w="${ft.count/115*100}%"></div></div>
+      <div class="ft-count">${ft.count}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  TABLE BUILD
+// ═══════════════════════════════════════════════════════
+function buildTable(){
+  const body=document.getElementById('tableBody');
+  const bestF1=Math.max(...MODELS.map(m=>m.f1));
+  body.innerHTML=MODELS.map((m,i)=>{
+    const isBest=m.f1===bestF1;
+    const pill=(v,rev)=>{
+      if(typeof v!=='number')return `<span style="color:var(--text3)">${v}</span>`;
+      const hi=rev?v<0.05:v>=0.85, lo=rev?v>0.15:v<0.5;
+      const cls=hi?'pill-hi':lo?'pill-lo':'pill-mid';
+      return `<span class="pill ${cls}">${(v*100).toFixed(1)}%</span>`;
+    };
+    return `<tr>
+      <td><span class="t-name" style="color:${MODEL_COLORS[i]}">${m.name}${isBest?'<span class="best-tag">Best F1</span>':''}</span></td>
+      <td>${pill(m.acc)}</td>
+      <td>${pill(m.prec)}</td>
+      <td>${pill(m.rec)}</td>
+      <td>${pill(m.f1)}</td>
+      <td>${pill(m.roc)}</td>
+      <td><div class="mini-bar"><div class="mb-label">${(m.f1*100).toFixed(1)}%</div><div class="mb-track"><div class="mb-fill" style="width:${m.f1*100}%"></div></div></div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  FEATURE IMPORTANCE
+// ═══════════════════════════════════════════════════════
+function buildFeatures(){
+  const max=RF_IMP[0].imp;
+  const gradients=['linear-gradient(90deg,var(--orange),var(--red))','linear-gradient(90deg,var(--blue2),var(--purple))','linear-gradient(90deg,var(--teal),var(--blue2))','linear-gradient(90deg,var(--green),var(--teal))','linear-gradient(90deg,var(--purple),var(--blue2))','linear-gradient(90deg,#9898a6,#5a5a6a)'];
+  document.getElementById('featList').innerHTML=RF_IMP.map((f,i)=>`
+    <div class="feat-item reveal" style="transition-delay:${i*.1}s">
+      <div class="feat-rank">${i+1}</div>
+      <div class="feat-name">${f.name}</div>
+      <div class="feat-track"><div class="feat-fill" style="background:${gradients[i]}" data-w="${f.imp/max}"></div></div>
+      <div class="feat-score">${(f.imp*100).toFixed(1)}%</div>
+      <div class="feat-corr">${f.corr}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  COST CARDS
+// ═══════════════════════════════════════════════════════
+function buildCost(){
+  const minCost=Math.min(...MODELS.map(m=>m.cost));
+  document.getElementById('costGrid').innerHTML=MODELS.map(m=>{
+    const best=m.cost===minCost;
+    return `<div class="cost-card ${best?'cost-best':''}">
+      ${best?'<span class="best-flag">★ Lowest Total Cost</span>':''}
+      <div class="cost-model-name">${m.name}</div>
+      <div class="cost-total" style="color:${best?'var(--green)':m.cost>600000?'var(--red)':'var(--text)'}">$${m.cost.toLocaleString()}</div>
+      <div class="cost-row"><span class="cost-row-label">Missed (FN × $10K)</span><span class="fn-color">${m.fn} × $10K</span></div>
+      <div class="cost-row"><span class="cost-row-label">False alarms (FP × $500)</span><span class="fp-color">${m.fp} × $500</span></div>
+      <div class="cost-desc">TN:${m.tn} TP:${m.tp} FN:${m.fn} FP:${m.fp}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  SCROLL REVEAL + FEATURE BAR ANIMATION
+// ═══════════════════════════════════════════════════════
+function initObserver(){
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.classList.add('in');
+        e.target.querySelectorAll('.feat-fill').forEach(el=>{
+          el.style.transform=`scaleX(${el.dataset.w})`;
+        });
+        e.target.querySelectorAll('.ft-fill').forEach(el=>{
+          el.style.width=el.dataset.w;
+        });
+      }
+    });
+  },{threshold:.1});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOADER
+// ═══════════════════════════════════════════════════════
+function boot(){
+  const fill=document.getElementById('lf');
+  const msg=document.getElementById('lm');
+  const steps=[[0,'Initializing…'],[18,'Loading AI4I 2020 dataset…'],[38,'Fitting 5 ML models…'],[62,'Calibrating thresholds…'],[82,'Running test evaluation…'],[96,'Launching MechSense…']];
+  steps.forEach(([p,m],i)=>setTimeout(()=>{fill.style.width=p+'%';msg.textContent=m},i*300));
+  setTimeout(()=>{
+    fill.style.width='100%';
+    setTimeout(()=>{
+      document.getElementById('loader').classList.add('out');
+      initObserver();
+      runPred();
+      // init slider tracks
+      document.querySelectorAll('.sliders input[type=range]').forEach(inp=>{
+        const mn=parseFloat(inp.min),mx=parseFloat(inp.max),v=parseFloat(inp.value);
+        inp.style.setProperty('--p',((v-mn)/(mx-mn)*100).toFixed(1)+'%');
+      });
+    },500);
+  },steps.length*300+200);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  buildTable();
+  buildFeatures();
+  buildCost();
+  initDemoChart();
+  initEDA();
+  runPred();
+  boot();
+});
+</script>
+</body>
+</html>

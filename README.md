@@ -117,5 +117,3 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 GitHub: [@Arnavs10](https://github.com/Arnavs10)
 
 ---
-
-*Built as part of Latest Advances in Engineering & Technology (CSET-395)*
